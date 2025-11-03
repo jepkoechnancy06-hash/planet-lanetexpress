@@ -23,6 +23,12 @@ export default defineConfig(({ mode }) => {
         alias: {
           '@': path.resolve(__dirname, '.'),
         }
-      }
+      },
+        preview: {
+      port: 3000,
+      allowedHosts: ['planet-lanetexpress.onrender.com']
+    }
+  }
+})
     };
 });
