@@ -7,9 +7,10 @@ export default defineConfig(({ mode }) => {
 
   return {
     server: {
-      host: 'planet-lanetexpress.onrender.com', 
+      host: 'planet-lanetexpress.onrender.com',
       port: 3000,
-      strictPort: true, // optional: fail if port is taken (useful on cloud hosts)
+      strictPort: true,
+      allowedHosts: ['planet-lanetexpress.onrender.com'], // 👈 allow your domain
     },
     plugins: [react()],
     define: {
