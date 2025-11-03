@@ -6,11 +6,14 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '');
 
   return {
-    server: {
-      host: 'planet-lanetexpress.onrender.com',
+     server: {
       port: 3000,
-      strictPort: true,
-      allowedHosts: ['planet-lanetexpress.onrender.com'], // 👈 allow your domain
+      host: true, // allows connections from external hosts
+      allowedHosts: [
+        'planet-lanetexpress.onrender.com', // Render domain
+        'localhost',
+        '127.0.0.1'
+      ]
     },
     plugins: [react()],
     define: {
