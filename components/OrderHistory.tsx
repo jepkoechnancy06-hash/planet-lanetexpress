@@ -5,9 +5,10 @@ import { ArrowLeftIcon } from './Icons';
 
 interface OrderHistoryProps {
     onGoHome: () => void;
+    onGoBack: () => void;
 }
 
-const OrderHistory: React.FC<OrderHistoryProps> = ({ onGoHome }) => {
+const OrderHistory: React.FC<OrderHistoryProps> = ({ onGoHome, onGoBack }) => {
     const [orders, setOrders] = useState<PastOrder[]>([]);
 
     useEffect(() => {
@@ -32,11 +33,11 @@ const OrderHistory: React.FC<OrderHistoryProps> = ({ onGoHome }) => {
     return (
         <div className="p-4 md:p-8 animate-fade-in">
             <button
-              onClick={onGoHome}
+              onClick={onGoBack}
               className="flex items-center gap-2 mb-6 text-cyan-400 hover:text-cyan-300 transition-colors duration-300"
             >
               <ArrowLeftIcon />
-              Back to Home
+              Back
             </button>
             <h2 className="text-3xl font-bold mb-6 text-white">Your Past Orders</h2>
             <div className="space-y-4">

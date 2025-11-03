@@ -1,129 +1,192 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Store } from '../types';
-import { CheckCircleIcon } from './Icons';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Store, CartItem } from '../types';
 import { saveOrder } from '../services/orderService';
+import { CheckCircleIcon } from './Icons';
+import Map from './Map';
+import { USER_LOCATION } from '../constants';
 
 interface OrderTrackerProps {
   store: Store;
+  cart: CartItem[];
 }
 
-const STATUSES = [
-  { name: "Order Placed", description: "We've received your order." },
-  { name: "Preparing Your Order", description: (storeName: string) => `${storeName} is preparing your items.` },
-  { name: "Rider Dispatched", description: "Your rider is on the way to the store." },
-  { name: "Out for Delivery", description: "Almost there! Your order is nearby." },
-  { name: "Delivered", description: "Enjoy! Thank you for your order." }
+const ORDER_STATUSES = [
+  'Order placed',
+  'Preparing your order',
+  'Rider Dispatched',
+  'Out for delivery',
+  'Delivered',
 ];
 
+const MOCK_RIDER = {
+  name: 'James K.',
+  avatar: 'https://i.pravatar.cc/150?u=jamesk',
+}
 
-const OrderTracker: React.FC<OrderTrackerProps> = ({ store }) => {
-  const [currentStatusIndex, setCurrentStatusIndex] = useState(0);
-  const [deliveryAddress, setDeliveryAddress] = useState("123 Cosmic Way, Nebula City, 98765");
-  const [addressConfirmed, setAddressConfirmed] = useState(false);
-  const orderSaved = useRef(false);
+// Haversine formula to calculate distance
+const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+  const R = 6371; // Radius of the earth in km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c; // Distance in km
+};
+
+const OrderTracker: React.FC<OrderTrackerProps> = ({ store, cart }) => {
+  const [statusIndex, setStatusIndex] = useState(0);
+  const [progress, setProgress] = useState(0);
+
+  const orderSummary = useMemo(() => {
+    const subtotal = cart.reduce((acc, item) => acc + item.product.price * item.quantity, 0);
+    const distance = getDistance(USER_LOCATION.latitude, USER_LOCATION.longitude, store.latitude, store.longitude);
+    const distanceFee = distance * 50; // KES 50 per KM
+    const totalFee = store.deliveryFee + distanceFee;
+    const total = subtotal + totalFee;
+    return { subtotal, distance: distance.toFixed(2), distanceFee: distanceFee.toFixed(2), totalFee: totalFee.toFixed(2), total };
+  }, [store, cart]);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentStatusIndex(prevIndex => {
-        const newIndex = prevIndex < STATUSES.length - 1 ? prevIndex + 1 : prevIndex;
-
-        if (newIndex === STATUSES.length - 1 && !orderSaved.current) {
+    setStatusIndex(0);
+    setProgress(0);
+  
+    const statusTimeouts = ORDER_STATUSES.slice(1).map((_, index) => {
+      return setTimeout(() => {
+        setStatusIndex(index + 1);
+        
+        if (index + 1 === ORDER_STATUSES.length - 1) {
           saveOrder({
             storeName: store.name,
             storeImage: store.image,
             date: new Date().toISOString(),
-            itemCount: Math.floor(Math.random() * 10) + 2, // Mock item count
+            itemCount: cart.reduce((sum, item) => sum + item.quantity, 0),
           });
-          orderSaved.current = true;
         }
-        
-        if (newIndex === prevIndex) {
-            clearInterval(interval);
-        }
+      }, (index + 1) * 4000);
+    });
 
-        return newIndex;
+    const totalDuration = (ORDER_STATUSES.length - 1) * 4000;
+    const updateInterval = 100;
+    const progressIncrement = 100 / (totalDuration / updateInterval);
+
+    const progressInterval = setInterval(() => {
+      setProgress(p => {
+        if (p >= 100) {
+          clearInterval(progressInterval);
+          return 100;
+        }
+        return p + progressIncrement;
       });
-    }, 2500); // Faster interval for a more dynamic feel
+    }, updateInterval);
 
-    return () => clearInterval(interval);
-  }, [store]);
+    return () => {
+      statusTimeouts.forEach(clearTimeout);
+      clearInterval(progressInterval);
+    };
+  }, [store, cart]);
 
-  const progressPercentage = (currentStatusIndex / (STATUSES.length - 1)) * 100;
+  const mapImageUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${store.latitude},${store.longitude}&zoom=14&size=800x800&maptype=roadmap&style=feature:all|element:labels|visibility:off&style=feature:road|element:geometry|color:0x374151&style=feature:landscape|element:geometry|color:0x1f2937&style=feature:water|element:geometry|color:0x4f46e5&key=${process.env.API_KEY}`;
+  
+  const showRiderInfo = statusIndex >= 2;
 
   return (
-    <div className="max-w-4xl mx-auto">
-      <h2 className="text-3xl font-bold text-white mb-2">Tracking Your Order</h2>
-      <p className="text-slate-400 mb-8">From <span className="font-semibold text-cyan-400">{store.name}</span></p>
-      
-      <div className="mb-8">
-          <div className="w-full bg-slate-700 rounded-full h-2.5">
-              <div 
-                className="bg-cyan-500 h-2.5 rounded-full transition-all duration-500 ease-in-out" 
-                style={{ width: `${progressPercentage}%` }}>
-              </div>
-          </div>
+    <div className="flex flex-col lg:flex-row gap-8">
+      <div className="flex-grow lg:w-2/3 space-y-8">
+        <div className="bg-slate-800 rounded-lg overflow-hidden border border-slate-700">
+           <div className="relative h-64 md:h-96">
+             <Map store={store} progress={progress} imageUrl={mapImageUrl} />
+           </div>
+           <div className="p-6">
+                <div className="flex items-center gap-4 mb-4">
+                    <img src={store.image} alt={store.name} className="w-16 h-16 object-cover rounded-md" />
+                    <div>
+                        <p className="text-sm text-slate-400">Your order from</p>
+                        <h2 className="text-2xl font-bold text-white">{store.name}</h2>
+                    </div>
+                </div>
+                <p className="text-lg text-cyan-400 font-semibold animate-pulse">{ORDER_STATUSES[statusIndex]}</p>
+           </div>
+        </div>
+
+         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className={`bg-slate-800 rounded-lg p-6 border border-slate-700 transition-opacity duration-500 ${showRiderInfo ? 'opacity-100' : 'opacity-0'}`}>
+                <h3 className="text-xl font-bold mb-4 text-white">Your Rider</h3>
+                {showRiderInfo ? (
+                    <div className="flex items-center gap-4 animate-fade-in">
+                        <img src={MOCK_RIDER.avatar} alt="Rider" className="w-12 h-12 rounded-full border-2 border-cyan-400"/>
+                        <div>
+                            <p className="font-bold text-white">{MOCK_RIDER.name}</p>
+                            <p className="text-sm text-slate-400">Is on the way!</p>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="h-12"></div>
+                )}
+            </div>
+             <div className="bg-slate-800 rounded-lg p-6 border border-slate-700">
+                <h3 className="text-xl font-bold mb-4 text-white">Order Summary</h3>
+                <div className="space-y-2 text-slate-300">
+                    <div className="flex justify-between"><span>Subtotal</span> <span>KES {orderSummary.subtotal.toFixed(2)}</span></div>
+                    <div className="flex justify-between"><span>Base Fee</span> <span>KES {store.deliveryFee.toFixed(2)}</span></div>
+                     <div className="flex justify-between text-sm text-slate-400"><span>Distance Fee ({orderSummary.distance} km)</span> <span>KES {orderSummary.distanceFee}</span></div>
+                    <div className="flex justify-between font-bold text-white text-lg border-t border-slate-700 pt-2 mt-2"><span>Total</span> <span>KES {orderSummary.total.toFixed(2)}</span></div>
+                </div>
+            </div>
+        </div>
+
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-1 bg-slate-800 p-6 rounded-lg border border-slate-700">
-            <h3 className="font-bold text-lg mb-4 text-white">Delivery Status</h3>
-            <div className="relative pl-4">
-                <div className="absolute left-[23px] top-2 bottom-2 w-0.5 bg-slate-700" />
-                 {STATUSES.map((status, index) => {
-                    const isActive = index <= currentStatusIndex;
-                    let descriptionText = '';
-                    if (isActive) {
-                        if (typeof status.description === 'function') {
-                            descriptionText = status.description(store.name);
-                        } else {
-                            descriptionText = status.description;
-                        }
-                    }
-
-                    return (
-                        <div key={status.name} className="flex items-start gap-4 mb-6 relative">
-                            <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center border-2 ${isActive ? 'bg-cyan-500 border-cyan-400' : 'bg-slate-700 border-slate-600'} transition-all duration-500`}>
-                                {isActive && <CheckCircleIcon className="w-5 h-5 text-white" />}
-                            </div>
-                            <div>
-                                <p className={`font-semibold ${isActive ? 'text-white' : 'text-slate-400'} transition-colors duration-500`}>{status.name}</p>
-                                {descriptionText && <p className="text-sm text-slate-500">{descriptionText}</p>}
-                            </div>
-                        </div>
-                    )
-                 })}
-            </div>
-
-            {/* Delivery Address Section */}
-            {currentStatusIndex >= 3 && (
-              <div className="mt-6 pt-6 border-t border-slate-700 animate-fade-in">
-                <h3 className="font-bold text-lg mb-4 text-white">
-                    {addressConfirmed || currentStatusIndex === 4 ? 'Delivery Address Confirmed' : 'Confirm Delivery Address'}
-                </h3>
-                {addressConfirmed || currentStatusIndex === 4 ? (
-                    <p className="bg-slate-900/50 rounded-md p-3 text-slate-300 text-sm">{deliveryAddress}</p>
-                ) : (
-                    <div className="space-y-3">
-                        <p className="text-sm text-slate-400">Please confirm or update your address for a smooth delivery.</p>
-                        <input
-                            type="text"
-                            value={deliveryAddress}
-                            onChange={(e) => setDeliveryAddress(e.target.value)}
-                            className="w-full bg-slate-900 border border-slate-600 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                        />
-                        <button
-                            onClick={() => setAddressConfirmed(true)}
-                            className="w-full bg-cyan-600 text-white font-semibold py-2 rounded-md hover:bg-cyan-500 transition-colors duration-300"
-                        >
-                            Confirm Address
-                        </button>
+      <div className="lg:w-1/3">
+        <div className="bg-slate-800 rounded-lg p-6 border border-slate-700 h-full">
+          <h3 className="text-xl font-bold mb-6 text-white">Order Progress</h3>
+            <ul className="flex flex-col">
+              {ORDER_STATUSES.map((status, index) => (
+                <li key={status} className="flex gap-4 flex-1">
+                  <div className="flex flex-col items-center">
+                    <div
+                      className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center border-2 transition-colors duration-500 ${
+                        index <= statusIndex
+                          ? 'bg-cyan-500 border-cyan-400'
+                          : 'bg-slate-700 border-slate-600'
+                      }`}
+                    >
+                      {index <= statusIndex ? (
+                        <CheckCircleIcon className="w-5 h-5 text-white" />
+                      ) : (
+                        <span className="text-slate-400 font-bold">
+                          {index + 1}
+                        </span>
+                      )}
                     </div>
-                )}
-              </div>
-            )}
-        </div>
-        <div className="lg:col-span-2 rounded-lg overflow-hidden border border-slate-700">
-            <img src={`https://picsum.photos/seed/${store.id}map/800/600`} alt="Delivery Map" className="w-full h-full object-cover min-h-[300px] lg:min-h-0"/>
+                    {index < ORDER_STATUSES.length - 1 && (
+                      <div
+                        className={`w-0.5 flex-1 my-2 transition-colors duration-500 ${
+                          index < statusIndex ? 'bg-cyan-400' : 'bg-slate-600'
+                        }`}
+                      ></div>
+                    )}
+                  </div>
+                  <div className="pb-8 mt-1">
+                    <p
+                      className={`font-medium transition-colors duration-500 ${
+                        index <= statusIndex ? 'text-white' : 'text-slate-500'
+                      }`}
+                    >
+                      {status}
+                    </p>
+                    {index === ORDER_STATUSES.length - 1 &&
+                      statusIndex === index && (
+                        <p className="text-sm text-green-400 mt-1">
+                          Thank you for your order!
+                        </p>
+                      )}
+                  </div>
+                </li>
+              ))}
+            </ul>
         </div>
       </div>
     </div>
