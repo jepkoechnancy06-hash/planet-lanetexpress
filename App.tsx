@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useEffect } from 'react';
 import { Category, Store, View } from './types';
 import { CATEGORIES, STORES } from './constants';
@@ -7,6 +6,7 @@ import CategoryCard from './components/CategoryCard';
 import StoreCard from './components/StoreCard';
 import OrderTracker from './components/OrderTracker';
 import SmartAssistant from './components/SmartAssistant';
+import OrderHistory from './components/OrderHistory';
 import { ArrowLeftIcon } from './components/Icons';
 
 const App: React.FC = () => {
@@ -37,6 +37,10 @@ const App: React.FC = () => {
     setSelectedCategory(null);
     setSelectedStore(null);
     setCurrentView(View.Home);
+  }, []);
+
+  const handleGoToHistory = useCallback(() => {
+    setCurrentView(View.History);
   }, []);
   
   useEffect(() => {
@@ -83,6 +87,8 @@ const App: React.FC = () => {
             <OrderTracker store={selectedStore} />
           </div>
         );
+      case View.History:
+        return <OrderHistory onGoHome={handleGoHome} />;
       case View.Home:
       default:
         return (
@@ -103,7 +109,7 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-900">
-      <Header onLogoClick={handleGoHome} />
+      <Header onLogoClick={handleGoHome} onHistoryClick={handleGoToHistory} />
       <main className="max-w-7xl mx-auto">
         {renderContent()}
       </main>

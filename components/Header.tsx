@@ -1,12 +1,12 @@
-
 import React from 'react';
-import { LogoIcon } from './Icons';
+import { LogoIcon, HistoryIcon } from './Icons';
 
 interface HeaderProps {
     onLogoClick: () => void;
+    onHistoryClick: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ onLogoClick }) => {
+const Header: React.FC<HeaderProps> = ({ onLogoClick, onHistoryClick }) => {
   return (
     <header className="bg-slate-900/80 backdrop-blur-sm sticky top-0 z-50 border-b border-slate-800">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -17,6 +17,16 @@ const Header: React.FC<HeaderProps> = ({ onLogoClick }) => {
                 <span className="text-2xl font-bold text-white group-hover:text-cyan-400 transition-colors">
                     Planet Lanet Express
                 </span>
+            </button>
+          </div>
+          <div className="flex items-center">
+            <button 
+              onClick={onHistoryClick} 
+              className="flex items-center gap-2 text-slate-300 hover:text-cyan-400 transition-colors"
+              aria-label="View order history"
+            >
+              <HistoryIcon className="w-6 h-6" />
+              <span className="hidden sm:block font-medium">History</span>
             </button>
           </div>
         </div>

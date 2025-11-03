@@ -1,10 +1,10 @@
-
 import React from 'react';
 
 export enum View {
   Home = 'home',
   Stores = 'stores',
   Tracking = 'tracking',
+  History = 'history',
 }
 
 export interface Category {
@@ -21,4 +21,12 @@ export interface Store {
   rating: number;
   image: string;
   category: string;
+}
+
+export interface PastOrder {
+  id: string;
+  storeName: string;
+  storeImage: string;
+  date: string;
+  itemCount: number;
 }
